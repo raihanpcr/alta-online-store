@@ -1,0 +1,182 @@
+datasource db {
+      provider = "postgresql"
+      url      = env("DATABASE_URL")
+}
+
+generator client {
+      provider        = "prisma-client-js"
+      previewFeatures = ["driverAdapters"]
+}
+
+enum Roles {
+      admin
+      user
+}
+
+enum TransactionStatus {
+      PENDING
+      COMPLETED
+      FAILED
+}
+
+enum OrderStatus {
+      PENDING
+      PROCESSING
+      SHIPPED
+      DELIVERED
+      CANCELED
+      RETURNED
+}
+
+model User {
+      id            String        @id @default(cuid())
+      name          String?
+      email         String        @unique
+      emailVerified DateTime?     @map("email_verified")
+      image         String?
+      role          Roles         @default(user)
+      address       String?
+      created_at    DateTime      @default(now())
+      updated_at    DateTime      @updatedAt
+      accounts      Account[]
+      sessions      Session[]
+      cart          Cart[]
+      transaction   Transaction[]
+      order         Order[]
+
+      @@map("users")
+}
+
+model Account {
+      userId            String  @map("user_id")
+      type              String
+      provider          String
+      providerAccountId String  @map("provider_account_id")
+      refresh_token     String?
+      access_token      String?
+      expires_at        Int?
+      token_type        String?
+      scope             String?
+      id_token          String?
+      session_state     String?
+
+      created_at DateTime @default(now())
+      updated_at DateTime @updatedAt
+
+      user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+      @@id([provider, providerAccountId])
+      @@map("accounts")
+}
+
+model Session {
+      sessionToken String   @unique @map("session_token")
+      userId       String   @map("user_id")
+      expires      DateTime
+      user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+      created_at DateTime @default(now())
+      updated_at DateTime @updatedAt
+
+      @@map("sessions")
+}
+
+model VerificationToken {
+      identifier String
+      token      String
+      expires    DateTime
+
+      @@id([identifier, token])
+      @@map("verification_token")
+}
+
+model Product {
+      id          String      @id @default(cuid())
+      category_id Int
+      name        String
+      description String
+      price       String
+      image       String?
+      created_at  DateTime    @default(now())
+      updated_at  DateTime    @updatedAt
+      category    Category?   @relation(fields: [category_id], references: [id])
+      cart_item   CartItem[]
+      order_item  OrderItem[]
+}
+
+model Category {
+      id         Int       @id @default(autoincrement())
+      name       String
+      created_at DateTime  @default(now())
+      updated_at DateTime  @updatedAt
+      product    Product[]
+
+      @@map("categories")
+}
+
+model Cart {
+      id          Int           @id @default(autoincrement())
+      user_id     String        @unique
+      created_at  DateTime      @default(now())
+      updated_at  DateTime      @updatedAt
+      user        User          @relation(fields: [user_id], references: [id])
+      cart_items  CartItem[]
+      transaction Transaction[]
+
+      @@map("carts")
+}
+
+model CartItem {
+      id         Int      @id @default(autoincrement())
+      cart_id    Int      @unique
+      product_id String
+      quantity   Int
+      cart       Cart     @relation(fields: [cart_id], references: [id])
+      product    Product? @relation(fields: [productId], references: [id])
+      productId  String?
+
+      @@map("cart_item")
+}
+
+model Transaction {
+      id          String            @id @default(cuid())
+      user_id     String
+      cart_id     Int
+      amount      String
+      status      TransactionStatus
+      payment_url String?
+      created_at  DateTime          @default(now())
+      updated_at  DateTime          @updatedAt
+      user        User              @relation(fields: [user_id], references: [id])
+      cart        Cart              @relation(fields: [cart_id], references: [id])
+      order       Order?
+
+      @@map("transaction")
+}
+
+model Order {
+      id             String       @id @default(cuid())
+      user_id        String
+      transaction_id String       @unique
+      total          String
+      created_at     DateTime     @default(now())
+      updated_at     DateTime     @updatedAt
+      items          OrderItem[]
+      status         OrderStatus
+      user           User?        @relation(fields: [user_id], references: [id])
+      transaction    Transaction? @relation(fields: [transaction_id], references: [id])
+
+      @@map("orders")
+}
+
+model OrderItem {
+      id         Int     @id @default(autoincrement())
+      order_id   String
+      product_id String
+      quantity   Int
+      price      String
+      order      Order   @relation(fields: [order_id], references: [id])
+      product    Product @relation(fields: [product_id], references: [id])
+
+      @@map("order_item")
+}
